@@ -2,16 +2,24 @@
 
 from llm4ad.task.science_discovery.oscillator1 import OscillatorEvaluation1
 from llm4ad.tools.llm.llm_api_https import HttpsApi
+from llm4ad.tools.llm.llm_api_openai import OpenAIAPI
 from llm4ad.method.funsearch import FunSearch
 from llm4ad.method.funsearch.profiler import FunSearchProfiler
 import os
-apikey = os.getenv('DEEPSEEK_API_KEY')
-print(apikey)
+from dotenv import load_dotenv
+load_dotenv()
+apikey = os.getenv('GEMINI_API_KEY')
 if __name__ == '__main__':
-    llm = HttpsApi(
-        host='api.deepseek.com',   # your host endpoint, e.g., api.openai.com, api.deepseek.com
-        key=apikey, # your key, e.g., sk-xxxxxxxxxx
-        model='deepseek-chat',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
+    # llm = HttpsApi(
+    #     host='api.deepseek.com',   # your host endpoint, e.g., api.openai.com, api.deepseek.com
+    #     key=apikey, # your key, e.g., sk-xxxxxxxxxx
+    #     model='deepseek-chat',  # your llm, e.g., gpt-3.5-turbo, deepseek-chat
+    #     timeout=100
+    # )
+    llm = OpenAIAPI(
+        base_url='https://generativelanguage.googleapis.com/v1beta/openai/',
+        api_key=apikey,
+        model='models/gemini-flash-latest',
         timeout=100
     )
     task = OscillatorEvaluation1()
