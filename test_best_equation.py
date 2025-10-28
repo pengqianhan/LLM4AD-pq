@@ -1,9 +1,10 @@
 """
-Test the best equation (sample_order 6) on test_id and test_ood datasets
+Test the best equation from the last sample_order in samples_best.json on test_id and test_ood datasets
 """
 import numpy as np
 from scipy.optimize import minimize
 import json
+import re
 
 # Import test datasets directly to avoid dependency issues
 import sys
@@ -13,28 +14,43 @@ import test_id
 import test_odd
 
 
-def equation(x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:
-    """ 
-    Best equation from sample_order 6
-    Mathematical function for acceleration in a damped nonlinear oscillator
+def load_best_equation_from_json(json_path: str):
+    """
+    Load the function from the last sample_order in samples_best.json
     
     Args:
-        x: A numpy array representing observations of current position.
-        v: A numpy array representing observations of velocity.
-        params: Array of numeric constants or parameters to be optimized
-
-    Return:
-        A numpy array representing acceleration as the result of applying 
-        the mathematical function to the inputs.
+        json_path: Path to the samples_best.json file
+        
+    Returns:
+        tuple: (sample_order, function_code, score, equation_function)
     """
-    return (params[0] * np.sin(params[1] * x + params[2]) + 
-            params[3] * np.sin(params[4] * v + params[5]) + 
-            params[6] * x * v + 
-            params[7] * np.exp(-params[8] * x**2) + 
-            params[9])
+    with open(json_path, 'r', encoding='utf-8') as f:
+        samples = json.load(f)
+    
+    if not samples:
+        raise ValueError("No samples found in JSON file")
+    
+    # Get the last sample
+    last_sample = samples[-1]
+    sample_order = last_sample['sample_order']
+    function_code = last_sample['function']
+    score = last_sample['score']
+    
+    # Extract the function body and create a callable function
+    # The function code includes the def statement, so we need to execute it
+    local_namespace = {'np': np}
+    exec(function_code, local_namespace)
+    equation_func = local_namespace['equation']
+    
+    return sample_order, function_code, score, equation_func
 
 
-def evaluate_on_dataset(data_dict: dict, equation_func: callable, dataset_name: str):
+# Global variables to store equation info (will be loaded in main)
+equation = None
+equation_info = {}
+
+
+def evaluate_on_dataset(data_dict: dict, equation_func: callable, dataset_name: str, max_params: int = 10):
     """
     Evaluate the equation on a given dataset
     
@@ -42,6 +58,7 @@ def evaluate_on_dataset(data_dict: dict, equation_func: callable, dataset_name: 
         data_dict: Dictionary containing 'x', 'v', 'a' keys with data values
         equation_func: The equation function to evaluate
         dataset_name: Name of the dataset for display
+        max_params: Maximum number of parameters for optimization
         
     Returns:
         Dictionary with optimization results
@@ -76,9 +93,8 @@ def evaluate_on_dataset(data_dict: dict, equation_func: callable, dataset_name: 
             return 1e10
     
     # Optimize parameters
-    print("\nOptimizing parameters...")
-    MAX_NPARAMS = 10
-    initial_params = [1.0] * MAX_NPARAMS
+    print(f"\nOptimizing parameters (max_params={max_params})...")
+    initial_params = [1.0] * max_params
     
     result = minimize(loss, initial_params, method='BFGS', options={'maxiter': 1000})
     
@@ -134,21 +150,53 @@ def evaluate_on_dataset(data_dict: dict, equation_func: callable, dataset_name: 
 
 
 def main():
+    # Path to the samples_best.json file
+    json_path = os.path.join('logs', 'funsearch', '20251028_072122', 'samples', 'samples_best.json')
+    
+    # Load the best equation from JSON
     print("="*60)
-    print("Testing Best Equation (Sample Order 6)")
+    print("Loading Best Equation from samples_best.json")
     print("="*60)
-    print("\nEquation:")
-    print("a = params[0] * sin(params[1] * x + params[2])")
-    print("  + params[3] * sin(params[4] * v + params[5])")
-    print("  + params[6] * x * v")
-    print("  + params[7] * exp(-params[8] * x²)")
-    print("  + params[9]")
+    
+    sample_order, function_code, original_score, equation_func = load_best_equation_from_json(json_path)
+    
+    print(f"\nLoaded equation from sample_order: {sample_order}")
+    print(f"Original score from FunSearch: {original_score:.10f}")
+    print(f"\nFunction code:")
+    print("-" * 60)
+    print(function_code)
+    # save the function code to a file
+    # with open('best_equation.py', 'w') as f:
+    #     f.write(function_code)
+    print("-" * 60)
+    
+    # Determine the number of parameters needed
+    # Extract param count from function code (look for params[N])
+    import re
+    param_indices = re.findall(r'params\[(\d+)\]', function_code)
+    if param_indices:
+        max_param_index = max(int(idx) for idx in param_indices)
+        max_params = max_param_index + 1
+    else:
+        # Check for P0, P1, ... style parameters
+        param_indices = re.findall(r'P(\d+)', function_code)
+        if param_indices:
+            max_param_index = max(int(idx) for idx in param_indices)
+            max_params = max_param_index + 1
+        else:
+            max_params = 10  # Default
+    
+    print(f"\nDetected number of parameters: {max_params}")
     
     # Test on test_id (In-Distribution)
-    result_id = evaluate_on_dataset(test_id.data, equation, "test_id.py (In-Distribution)")
+    result_id = evaluate_on_dataset(test_id.data, equation_func, 
+                                     "test_id.py (In-Distribution)", 
+                                     max_params=max_params)
     
     # Test on test_odd (Out-of-Distribution)
-    result_ood = evaluate_on_dataset(test_odd.data, equation, "test_odd.py (Out-of-Distribution)")
+    result_ood = evaluate_on_dataset(test_odd.data, equation_func, 
+                                      "test_odd.py (Out-of-Distribution)", 
+                                      max_params=max_params)
     
     # Summary comparison
     print(f"\n{'='*60}")
@@ -168,9 +216,12 @@ def main():
         print(f"\nMSE degradation (ID -> OOD): {mse_degradation:+.2f}%")
     
     # Save results to JSON
-    output_file = 'test_results_sample6.json'
+    output_file = f'test_results_sample{sample_order}.json'
     results = {
-        'equation_description': 'Sample order 6 from samples_best.json',
+        'sample_order': sample_order,
+        'original_funsearch_score': original_score,
+        'function_code': function_code,
+        'max_params': max_params,
         'test_id': result_id,
         'test_odd': result_ood
     }
