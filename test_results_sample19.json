@@ -1,0 +1,66 @@
+{
+    "sample_order": 19,
+    "original_funsearch_score": -8.034031039935919e-07,
+    "function_code": "def equation(x: np.ndarray, v: np.ndarray, params: np.ndarray) -> np.ndarray:\n    \"\"\" Mathematical function for acceleration in a damped nonlinear oscillator\n    Args:\n        x: A numpy array representing observations of current position.\n        v: A numpy array representing observations of velocity.\n        params: Array of numeric constants or parameters to be optimized\n\n    Return:\n        A numpy array representing acceleration as the result of applying the mathematical function to the inputs.\n    \"\"\"\n    if len(params) < 9:\n        raise ValueError(\"equation_v2 requires at least 9 parameters.\")\n        \n    P0, P1, P2, P3, P4, P5, P6, P7, P8 = params[0:9]\n\n    # --- Terms from V1 ---\n    \n    # 1. Linear Restoring Force (P0 * x)\n    term_x = P0 * x\n    \n    # 2. Linear Damping Force (P1 * v)\n    term_v = P1 * v\n    \n    # 3. Cubic Restoring Force (P2 * x^3) (Duffing term)\n    term_x3 = P2 * (x ** 3)\n    \n    # 4. Constant Driving/Offset Force (P3)\n    term_constant = P3\n    \n    # 5. Cubic Damping Force (P4 * v^3) \n    term_v3 = P4 * (v ** 3)\n\n    # 6. Quadratic Restoring Force (P5 * x^2) (Asymmetric stiffness)\n    term_x2 = P5 * (x ** 2)\n\n    # 7. Quadratic Damping Force (P6 * v^2) (Aerodynamic drag/Non-linear friction)\n    term_v2 = P6 * (v ** 2)\n\n    # --- New Autonomous Coupling Terms for V2 ---\n\n    # 8. Position-Velocity Cross-term (P7 * x * v)\n    # This term introduces damping or stiffness dependent on the other state variable.\n    term_xv = P7 * x * v\n\n    # 9. Higher-order state-dependent damping (P8 * x^2 * v)\n    # Damping proportional to velocity and position squared.\n    term_x2v = P8 * (x ** 2) * v \n    \n    dv = (\n        term_x + term_v + term_x3 + term_constant + \n        term_v3 + term_x2 + term_v2 + \n        term_xv + term_x2v\n    )\n    \n    return dv\n\n",
+    "max_params": 9,
+    "test_id": {
+        "dataset_name": "test_id.py (In-Distribution)",
+        "dataset_size": 10000,
+        "x_range": [
+            -0.5728219197489405,
+            0.5275126198976465
+        ],
+        "v_range": [
+            -0.1754297090655427,
+            0.2821363636097385
+        ],
+        "score": -8.029224376830155e-07,
+        "mse": 8.029224376830155e-07,
+        "rmse": 0.0008960593940599114,
+        "mae": 0.0007850007906770159,
+        "r2_score": 0.9998159672567285,
+        "optimized_params": [
+            -0.19741219809416102,
+            -0.07285389530526926,
+            0.14790578330219123,
+            0.0007948704588351613,
+            0.9669420791659937,
+            0.000192253977808175,
+            -0.15406552130164633,
+            -0.48818146554716535,
+            0.2831267051329575
+        ],
+        "optimization_success": true,
+        "optimization_iterations": 71
+    },
+    "test_odd": {
+        "dataset_name": "test_odd.py (Out-of-Distribution)",
+        "dataset_size": 10000,
+        "x_range": [
+            -0.7323110025770228,
+            1.1020509677154582
+        ],
+        "v_range": [
+            -0.2253801922916335,
+            0.5
+        ],
+        "score": -3.4293241097060312e-06,
+        "mse": 3.4293241097060312e-06,
+        "rmse": 0.001851843435527429,
+        "mae": 0.0015486751120639924,
+        "r2_score": 0.9995486654774781,
+        "optimized_params": [
+            -0.17491490961134704,
+            0.03519238483033927,
+            0.12737648862065545,
+            0.04068880626293755,
+            0.13110214312451274,
+            -0.055950199675172806,
+            -0.535403863750405,
+            -0.4656867708583513,
+            -0.027724234522838235
+        ],
+        "optimization_success": true,
+        "optimization_iterations": 53
+    }
+}
